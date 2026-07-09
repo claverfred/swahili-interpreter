@@ -9,11 +9,24 @@ import time
 import json
 import torch
 import soundfile as sf
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, asdict
 from typing import Optional
 from src.utils.logger import get_logger
 
 log = get_logger(__name__)
+
+
+def _run_async(coro):
+    """Run a coroutine to completion, whether or not an event loop
+    (e.g. Colab/Jupyter's kernel loop) is already running."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+    else:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(asyncio.run, coro).result()
 
 
 @dataclass
@@ -143,4 +156,4 @@ class TTSEngine:
             )
             await communicate.save(output_path)
 
-        asyncio.run(_run())
+        _run_async(_run())
