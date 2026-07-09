@@ -1,0 +1,65 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# Swahili–English Interpretation System — Main Configuration
+# ══════════════════════════════════════════════════════════════════════════════
+
+project:
+  name: "Swahili-English AI Interpretation System"
+  author: "Fred"
+  institution: "NM-AIST DSAI"
+  version: "1.0.0"
+
+# ── ASR ───────────────────────────────────────────────────────────────────────
+asr:
+  model: "large-v3"             # whisper model size: tiny/base/small/medium/large-v3
+  language: "sw"                # Swahili ISO code
+  beam_size: 5
+  compute_type_gpu: "float16"   # GPU inference type
+  compute_type_cpu: "int8"      # CPU inference type
+  vad_filter: true
+  vad_min_silence_ms: 500
+  condition_on_previous_text: false
+  word_timestamps: false
+
+# ── MT ────────────────────────────────────────────────────────────────────────
+mt:
+  primary_model: "facebook/nllb-200-distilled-600M"
+  baseline_model: "Helsinki-NLP/opus-mt-swc-en"
+  src_lang: "swh_Latn"          # NLLB Swahili code
+  tgt_lang: "eng_Latn"          # NLLB English code
+  batch_size_gpu: 16
+  batch_size_cpu: 4
+  max_length: 512
+  num_beams: 4
+
+# ── TTS ───────────────────────────────────────────────────────────────────────
+tts:
+  engine: "coqui"               # "coqui" or "edge"
+  coqui_model: "tts_models/multilingual/multi-dataset/xtts_v2"
+  coqui_speaker: "Ana Florence"
+  coqui_language: "en"
+  edge_voice: "en-US-AriaNeural"
+  edge_rate: "+0%"
+  edge_volume: "+0%"
+
+# ── Evaluation ────────────────────────────────────────────────────────────────
+eval:
+  dataset: "mozilla-foundation/common_voice_17_0"
+  language: "sw"
+  split: "test"
+  max_samples: 100
+  metrics:
+    - "wer"
+    - "bleu"
+    - "chrf"
+
+# ── Paths ─────────────────────────────────────────────────────────────────────
+paths:
+  data_raw: "data/raw"
+  data_processed: "data/processed"
+  data_cv: "data/common_voice"
+  results_asr: "results/asr"
+  results_mt: "results/mt"
+  results_tts: "results/tts"
+  results_pipeline: "results/pipeline"
+  results_eval: "results/eval"
+  logs: "logs"
