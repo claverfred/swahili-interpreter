@@ -30,7 +30,10 @@ jiwer>=3.0.0
 sacrebleu>=2.3.1
 
 # ── Data ─────────────────────────────────────────────────────────────────────
-datasets>=2.16.0
+# Common Voice's HF repo still uses a Python loading script; datasets>=3.0
+# dropped script execution entirely (EmptyDatasetError even with
+# trust_remote_code=True), so pin to the last script-capable release.
+datasets>=2.16.0,<3.0
 
 # ── Utils ─────────────────────────────────────────────────────────────────────
 pyyaml>=6.0.1
