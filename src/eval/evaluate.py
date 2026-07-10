@@ -23,18 +23,22 @@ class Evaluator:
 
     def load_common_voice(self) -> list:
         from datasets import load_dataset
+        from itertools import islice
         cfg = self.config["eval"]
-        log.info(f"Loading Common Voice {cfg['language']} / {cfg['split']}...")
+        log.info(f"Loading Common Voice {cfg['language']} / {cfg['split']} (streaming)...")
+        # streaming=True avoids downloading every split's archive upfront —
+        # Common Voice's loading script otherwise fetches train/dev/test/
+        # other/invalidated (several GB) even when only `split` is requested.
         ds = load_dataset(
             cfg["dataset"],
             cfg["language"],
             split             = cfg["split"],
+            streaming         = True,
             trust_remote_code = True,
         )
-        n  = min(cfg["max_samples"], len(ds))
-        ds = ds.select(range(n))
-        log.info(f"Loaded {n} samples")
-        return ds
+        samples = list(islice(ds, cfg["max_samples"]))
+        log.info(f"Loaded {len(samples)} samples")
+        return samples
 
     def evaluate_asr(self, asr_model, save_path: str = None) -> Dict:
         """
