@@ -43,7 +43,10 @@ tts:
 
 # ── Evaluation ────────────────────────────────────────────────────────────────
 eval:
-  dataset: "mozilla-foundation/common_voice_17_0"
+  # mozilla-foundation/common_voice_17_0 was pulled from HF in Oct 2025 (Mozilla
+  # moved distribution to "Mozilla Data Collective"). fsicoli's mirror is an
+  # independent snapshot that still hosts the real audio/transcript files.
+  dataset: "fsicoli/common_voice_17_0"
   language: "sw"
   split: "test"
   max_samples: 100
