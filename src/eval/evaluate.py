@@ -55,13 +55,37 @@ class Evaluator:
         tgt_lang = mt_cfg["tgt_lang"]   # e.g. "eng_Latn"
         pair     = f"{src_lang}-{tgt_lang}"
 
+        token = os.environ.get("HF_TOKEN")
+        if not token:
+            raise RuntimeError(
+                "HF_TOKEN is not set. FLORES-200 is a gated dataset:\n"
+                "  1. Visit https://huggingface.co/datasets/facebook/flores and accept the terms\n"
+                "  2. Create a READ token at https://huggingface.co/settings/tokens\n"
+                "  3. In Colab: key icon (left sidebar) -> add secret HF_TOKEN -> "
+                "toggle 'Notebook access' ON\n"
+                "Then re-run this cell."
+            )
+
         log.info(f"Loading FLORES-200 {pair} ({cfg['mt_reference_split']})...")
-        ds = load_dataset(
-            cfg["mt_reference_dataset"],
-            pair,
-            split = cfg["mt_reference_split"],
-            token = os.environ.get("HF_TOKEN"),
-        )
+        try:
+            ds = load_dataset(
+                cfg["mt_reference_dataset"],
+                pair,
+                split = cfg["mt_reference_split"],
+                token = token,
+            )
+        except Exception as e:
+            raise RuntimeError(
+                "Could not load FLORES-200 — almost always because the HF "
+                "account behind HF_TOKEN hasn't accepted the dataset's terms, "
+                "or 'Notebook access' isn't enabled for the HF_TOKEN secret. Check:\n"
+                "  1. You accepted terms at https://huggingface.co/datasets/facebook/flores "
+                "while logged into the SAME account that generated HF_TOKEN\n"
+                "  2. Colab's secrets panel (key icon) has 'Notebook access' toggled ON "
+                "for HF_TOKEN\n"
+                "  3. The token has at least 'Read' scope and hasn't expired\n\n"
+                f"Original error: {e}"
+            ) from e
 
         src_col, tgt_col = f"sentence_{src_lang}", f"sentence_{tgt_lang}"
         if src_col not in ds.column_names or tgt_col not in ds.column_names:
