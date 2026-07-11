@@ -5,16 +5,59 @@ Fallback : Edge-TTS (Microsoft cloud, zero-setup)
 """
 import asyncio
 import os
+import re
 import time
 import json
+import tempfile
 import torch
+import numpy as np
 import soundfile as sf
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, asdict
-from typing import Optional
+from typing import List, Optional
 from src.utils.logger import get_logger
 
 log = get_logger(__name__)
+
+# XTTS-v2 hard-caps a single call at 400 GPT text tokens; its own internal
+# sentence splitter doesn't guarantee every chunk stays under that (e.g. a
+# long run-on segment with no punctuation), so we pre-chunk defensively.
+_XTTS_MAX_CHARS = 200
+
+
+def _chunk_text(text: str, max_chars: int = _XTTS_MAX_CHARS) -> List[str]:
+    """Split into pieces safely under XTTS's per-call token cap: first on
+    sentence boundaries, then hard-wrapping any punctuation-free run-on."""
+    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
+    chunks: List[str] = []
+    current = ""
+
+    def flush():
+        nonlocal current
+        if current:
+            chunks.append(current.strip())
+            current = ""
+
+    for sent in sentences:
+        sent = sent.strip()
+        if not sent:
+            continue
+        if len(sent) > max_chars:
+            flush()
+            piece = ""
+            for word in sent.split():
+                if piece and len(piece) + 1 + len(word) > max_chars:
+                    chunks.append(piece)
+                    piece = word
+                else:
+                    piece = f"{piece} {word}".strip()
+            current = piece
+            continue
+        if current and len(current) + 1 + len(sent) > max_chars:
+            flush()
+        current = f"{current} {sent}".strip()
+    flush()
+    return chunks
 
 
 def _run_async(coro):
@@ -135,13 +178,33 @@ class TTSEngine:
         return result
 
     def _synthesize_coqui(self, text: str, output_path: str):
-        cfg = self.config["tts"]
-        self.model.tts_to_file(
-            text      = text,
-            file_path = output_path,
-            language  = cfg["coqui_language"],
-            speaker   = cfg["coqui_speaker"],
-        )
+        cfg    = self.config["tts"]
+        chunks = _chunk_text(text)
+
+        if len(chunks) == 1:
+            self.model.tts_to_file(
+                text      = chunks[0],
+                file_path = output_path,
+                language  = cfg["coqui_language"],
+                speaker   = cfg["coqui_speaker"],
+            )
+            return
+
+        log.info(f"Text exceeds XTTS's per-call limit — synthesizing in {len(chunks)} chunks")
+        audio_parts, sr = [], None
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            for i, chunk in enumerate(chunks):
+                part_path = os.path.join(tmp_dir, f"part_{i}.wav")
+                self.model.tts_to_file(
+                    text      = chunk,
+                    file_path = part_path,
+                    language  = cfg["coqui_language"],
+                    speaker   = cfg["coqui_speaker"],
+                )
+                data, sr = sf.read(part_path)
+                audio_parts.append(data)
+
+        sf.write(output_path, np.concatenate(audio_parts), sr)
 
     def _synthesize_edge(self, text: str, output_path: str):
         import edge_tts
