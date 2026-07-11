@@ -50,6 +50,15 @@ eval:
   language: "sw"
   split: "test"
   max_samples: 100
+  # FLORES-200 devtest — real human-translated Swahili<->English parallel
+  # sentences, used to score MT quality against genuine ground truth instead
+  # of comparing one MT model's output to another's (see mt.src_lang/tgt_lang
+  # for the language codes; FLORES-200 uses the same NLLB-style codes).
+  # Gated dataset: accept terms at huggingface.co/datasets/facebook/flores
+  # and set an HF_TOKEN (Colab: store as a secret named HF_TOKEN).
+  mt_reference_dataset: "facebook/flores"
+  mt_reference_split: "devtest"
+  mt_max_samples: 200
   metrics:
     - "wer"
     - "bleu"

@@ -1,7 +1,11 @@
 # ── Core ML ───────────────────────────────────────────────────────────────────
 torch>=2.1.0
 torchaudio>=2.1.0
-transformers>=4.37.0
+
+# coqui-tts imports the private helper transformers.pytorch_utils.isin_mps_friendly,
+# which existed through transformers 5.0.x and was removed in 5.1.0 — pin below
+# that to avoid "cannot import name 'isin_mps_friendly'" breaking Coqui XTTS-v2.
+transformers>=4.57,<5.1.0
 accelerate>=0.26.0
 optimum>=1.16.0
 bitsandbytes>=0.41.0

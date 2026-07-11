@@ -40,6 +40,42 @@ class Evaluator:
         log.info(f"Loaded {len(samples)} samples")
         return samples
 
+    def load_flores_pairs(self) -> Dict[str, List[str]]:
+        """
+        Load FLORES-200 devtest parallel sentences for MT scoring against
+        real human-translated references, independent of ASR/pipeline output
+        (unlike comparing one MT model's translation to another's).
+        Requires HF_TOKEN in the environment (dataset is gated/auto-approval).
+        """
+        from datasets import load_dataset
+
+        cfg      = self.config["eval"]
+        mt_cfg   = self.config["mt"]
+        src_lang = mt_cfg["src_lang"]   # e.g. "swh_Latn"
+        tgt_lang = mt_cfg["tgt_lang"]   # e.g. "eng_Latn"
+        pair     = f"{src_lang}-{tgt_lang}"
+
+        log.info(f"Loading FLORES-200 {pair} ({cfg['mt_reference_split']})...")
+        ds = load_dataset(
+            cfg["mt_reference_dataset"],
+            pair,
+            split = cfg["mt_reference_split"],
+            token = os.environ.get("HF_TOKEN"),
+        )
+
+        src_col, tgt_col = f"sentence_{src_lang}", f"sentence_{tgt_lang}"
+        if src_col not in ds.column_names or tgt_col not in ds.column_names:
+            raise KeyError(
+                f"Expected columns '{src_col}'/'{tgt_col}' not in FLORES-200 "
+                f"— available columns: {ds.column_names}"
+            )
+
+        n = min(cfg["mt_max_samples"], len(ds))
+        ds = ds.select(range(n))
+        log.info(f"Loaded {n} FLORES-200 parallel sentences")
+
+        return {"source": list(ds[src_col]), "reference": list(ds[tgt_col])}
+
     def evaluate_asr(self, asr_model, save_path: str = None) -> Dict:
         """
         Run ASR on Common Voice samples, compute WER and CER.
